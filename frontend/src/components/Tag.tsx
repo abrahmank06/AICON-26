@@ -12,7 +12,7 @@ interface TagProps {
 /** A white produce tag. The punched eyelet marks the one verdict tag per view. */
 export function Tag({ children, className = '', eyelet = false, as: As = 'section', label }: TagProps) {
   return (
-    <As aria-label={label} className={`relative rounded-[20px] bg-card shadow-card ring-1 ring-[rgb(60_50_20/0.06)] ${className}`}>
+    <As aria-label={label} className={`card-hover relative rounded-[20px] bg-card shadow-card ring-1 ring-[rgb(60_50_20/0.06)] ${className}`}>
       {eyelet && <span aria-hidden className="absolute top-0 left-8 h-1 w-14 rounded-b-full bg-stable/65" />}
       {children}
     </As>

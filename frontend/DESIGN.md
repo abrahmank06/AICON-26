@@ -196,6 +196,7 @@ Single centred column, max 1180px, 20px side padding on mobile and 32px from 640
 ## Elevation & Depth
 
 - **Card** (`0 1px 2px rgb(60 50 20 / .06), 0 8px 24px -12px rgb(60 50 20 / .18)` + 1px ring): every card.
+- **Card hover** (`0 2px 4px rgb(24 39 68 / .06), 0 18px 36px -16px rgb(24 39 68 / .24)`): every card on hover, with a 3px lift (`.card-hover`, ease-in-out-sine `cubic-bezier(0.37, 0, 0.63, 1)`: 650ms in, 800ms back out; pointer devices only).
 - **Pop** (`0 2px 4px rgb(28 32 48 / .08), 0 16px 40px -16px rgb(28 32 48 / .28)`): tooltips.
 - **Alert** (`0 8px 24px -12px rgb(179 38 30 / .6)`): spike alert band only.
 

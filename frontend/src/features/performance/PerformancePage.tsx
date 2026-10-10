@@ -78,7 +78,7 @@ export default function PerformancePage() {
         </div>
       </section>
 
-      <section aria-labelledby="impact" className="relative overflow-hidden rounded-[20px] bg-navy px-6 py-8 text-card sm:px-10 sm:py-10">
+      <section aria-labelledby="impact" className="card-hover relative overflow-hidden rounded-[20px] bg-navy px-6 py-8 text-card sm:px-10 sm:py-10">
         <div className="grid items-end gap-8 md:grid-cols-[1.3fr_1fr]">
           <div className="flex flex-col gap-3">
             <h2 id="impact" className="text-[15px] font-semibold text-navy-soft">

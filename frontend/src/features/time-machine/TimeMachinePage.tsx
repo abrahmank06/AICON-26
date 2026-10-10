@@ -1,20 +1,18 @@
-import { useMemo, useState } from 'react'
-import { History, Rewind } from 'lucide-react'
+import { useMemo } from 'react'
+import { CalendarDays, History } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChartKey, PriceChart } from '../../charts/PriceChart'
-import { Button, DateField } from '../../components/Controls'
 import { InfoTip } from '../../components/InfoTip'
 import { Stamp } from '../../components/Stamp'
 import { ErrorState } from '../../components/States'
 import { Tag } from '../../components/Tag'
 import { useAlerts, useTravel } from '../../hooks/queries'
 import { useFilters } from '../../hooks/useFilters'
-import { useSearchParams } from 'react-router-dom'
-import { EARLIEST_AS_OF, LATEST_TRAVEL, clampDate, isIsoDate } from '../../lib/dates'
-import { cropPlural, formatDate, formatShortDate, formatSignedPct } from '../../lib/format'
+import { DATA_END, EARLIEST_AS_OF, LATEST_TRAVEL, daysBetween } from '../../lib/dates'
+import { cropPlural, formatDate, formatSignedPct } from '../../lib/format'
 import { fade, uiSpring } from '../../lib/motion'
 import type { TravelQuery } from '../../services/api'
-import type { TimeMachineResult, TravelVerdict } from '../../types'
+import type { Alert, TimeMachineResult, TravelVerdict } from '../../types'
 
 const VERDICT: Record<TravelVerdict, { stamp: string; ink: string }> = {
   correct_alert: { stamp: 'Called it', ink: 'var(--color-stable)' },
@@ -61,35 +59,66 @@ function Travelling({ date }: { date: string }) {
   )
 }
 
+const EVENT_COUNT = 3
+/** Alerts closer than this belong to the same price episode, so only one of them is offered. */
+const EPISODE_GAP_DAYS = 60
+
+/** Up to three past alerts with a full week of real prices after them: the biggest caught spikes and a false alarm. */
+function pickEvents(alerts: Alert[], market: string, crop: string) {
+  const own = alerts.filter(
+    (a) => a.market === market && a.crop === crop && a.dateFired >= EARLIEST_AS_OF && a.dateFired <= LATEST_TRAVEL,
+  )
+  const picked: Alert[] = []
+  const take = (pool: Alert[], max: number) => {
+    for (const a of pool) {
+      if (picked.length >= EVENT_COUNT || max <= 0) return
+      if (picked.some((p) => Math.abs(daysBetween(p.dateFired, a.dateFired)) < EPISODE_GAP_DAYS)) continue
+      picked.push(a)
+      max--
+    }
+  }
+  const hits = own.filter((a) => a.verdict === 'correct').sort((a, b) => b.actualSpikePct - a.actualSpikePct)
+  const misses = own.filter((a) => a.verdict === 'false_alarm').sort((a, b) => b.predictedSpikePct - a.predictedSpikePct)
+  take(hits, EVENT_COUNT - 1)
+  take(misses, 1)
+  take([...hits, ...misses], EVENT_COUNT)
+  return picked.sort((a, b) => a.dateFired.localeCompare(b.dateFired))
+}
+
+function EventCard({ alert, active, onSelect }: { alert: Alert; active: boolean; onSelect: () => void }) {
+  const caught = alert.verdict === 'correct'
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onSelect}
+      className={`card-hover flex min-w-0 flex-col items-start gap-1.5 rounded-[14px] border px-4 py-3 text-left ${
+        active ? 'border-navy bg-navy-soft/60' : 'border-field-line bg-card hover:border-navy/40'
+      }`}
+    >
+      <span className="tnum text-[15px] font-semibold text-ink">{formatDate(alert.dateFired)}</span>
+      <span className="flex items-center gap-2 text-[13px] text-ink-2">
+        <span aria-hidden className={`size-2 rounded-full ${caught ? 'bg-stable' : 'bg-watch-ink'}`} />
+        {caught ? `Spike caught · ${formatSignedPct(alert.actualSpikePct)}` : `False alarm · predicted ${formatSignedPct(alert.predictedSpikePct)}`}
+      </span>
+    </button>
+  )
+}
+
 export default function TimeMachinePage() {
   const { filters, setFilters } = useFilters()
-  const [params] = useSearchParams()
-  const travelParam = params.get('travel')
-  const initial = isIsoDate(travelParam) ? clampDate(travelParam, EARLIEST_AS_OF, LATEST_TRAVEL) : null
-  const [date, setDate] = useState(() => initial ?? '2023-07-10')
-  const [query, setQuery] = useState<TravelQuery | null>(() =>
-    initial ? { market: filters.market, crop: filters.crop, date: initial } : null,
-  )
+  const date = filters.date
+  const canTravel = date >= EARLIEST_AS_OF && date <= LATEST_TRAVEL
+  const query: TravelQuery | null = canTravel ? { market: filters.market, crop: filters.crop, date } : null
   const travel = useTravel(query)
   const alerts = useAlerts()
 
-  const suggestions = useMemo(() => {
-    const own = (alerts.data ?? []).filter(
-      (a) => a.market === filters.market && a.crop === filters.crop && a.dateFired <= LATEST_TRAVEL,
-    )
-    const hits = own.filter((a) => a.verdict === 'correct').sort((a, b) => b.actualSpikePct - a.actualSpikePct).slice(0, 2)
-    const miss = own.find((a) => a.verdict === 'false_alarm')
-    return [...hits.map((a) => ({ date: a.dateFired, kind: 'spike' })), ...(miss ? [{ date: miss.dateFired, kind: 'false alarm' }] : [])]
-  }, [alerts.data, filters.market, filters.crop])
-
-  const go = (d: string) => {
-    setDate(d)
-    setQuery({ market: filters.market, crop: filters.crop, date: d })
-    setFilters({ travel: d })
-  }
+  const events = useMemo(
+    () => pickEvents(alerts.data ?? [], filters.market, filters.crop),
+    [alerts.data, filters.market, filters.crop],
+  )
 
   const place = `${filters.market} ${cropPlural(filters.crop)}`
-  const stale = query && (query.market !== filters.market || query.crop !== filters.crop)
   const r = travel.data
 
   return (
@@ -101,34 +130,23 @@ export default function TimeMachinePage() {
             The forecast only sees data up to the day you pick, then we lay it over what really happened next, for {place}.
           </p>
         </div>
-        <form
-          className="flex flex-wrap items-end gap-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            go(date)
-          }}
-        >
-          <DateField label="Travel to" value={date} min={EARLIEST_AS_OF} max={LATEST_TRAVEL} onChange={setDate} />
-          <Button type="submit" disabled={travel.isFetching}>
-            <Rewind className="size-4" aria-hidden />
-            Travel
-          </Button>
-          {suggestions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 pb-1.5 sm:ml-3">
-              <span className="text-[13px] text-ink-2">Try</span>
-              {suggestions.map((s) => (
-                <button
-                  key={s.date}
-                  type="button"
-                  onClick={() => go(s.date)}
-                  className="press rounded-full border border-field-line bg-card/60 px-3 py-1 text-[13px] font-medium text-ink hover:border-navy hover:text-navy"
-                >
-                  {formatShortDate(s.date)} {s.date.slice(0, 4)} <span className="text-ink-2">· {s.kind}</span>
-                </button>
+        <p className="flex items-center gap-2 text-[15px] text-ink-2">
+          <CalendarDays className="size-4 text-navy" aria-hidden />
+          {canTravel ? 'Travelling to' : 'Selected date'} <span className="tnum font-semibold text-ink">{formatDate(date)}</span>
+          <span className="hidden sm:inline">· change it with the date filter above</span>
+        </p>
+        {events.length > 0 && (
+          <section aria-labelledby="past-events" className="flex flex-col gap-2.5">
+            <h2 id="past-events" className="text-[13.5px] font-medium text-ink-2">
+              Or replay a past event for {place}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {events.map((a) => (
+                <EventCard key={a.id} alert={a} active={a.dateFired === date} onSelect={() => setFilters({ date: a.dateFired })} />
               ))}
             </div>
-          )}
-        </form>
+          </section>
+        )}
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -139,12 +157,14 @@ export default function TimeMachinePage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={fade}
-            className="flex flex-col items-center gap-3 rounded-[20px] border-2 border-dashed border-field-line px-6 py-20 text-center"
+            className="flex flex-col items-center gap-3 rounded-[20px] border-2 border-dashed border-field-line px-6 py-16 text-center"
           >
             <History className="size-8 text-navy" aria-hidden />
-            <p className="text-[18px] font-semibold text-ink">Pick a date and press Travel</p>
-            <p className="max-w-sm text-[14px] text-ink-2">
-              Or try one of the suggested dates: real spikes Maahir caught, and one it got wrong.
+            <p className="text-[18px] font-semibold text-ink">Not enough data after {formatDate(date)} yet</p>
+            <p className="max-w-md text-[14px] text-ink-2">
+              The Time Machine checks a forecast against the 7 days that followed it, and prices are recorded up to{' '}
+              {formatDate(DATA_END)}. Choose a date up to {formatDate(LATEST_TRAVEL)} in the date filter above
+              {events.length > 0 ? ', or replay one of the past events.' : '.'}
             </p>
           </motion.div>
         ) : travel.isFetching ? (
@@ -160,11 +180,6 @@ export default function TimeMachinePage() {
             transition={uiSpring}
             className="flex flex-col gap-6"
           >
-            {stale && (
-              <p className="text-[14px] text-ink-2">
-                Showing {query.market} {cropPlural(query.crop)}. Press Travel to replay for {place}.
-              </p>
-            )}
             <Tag eyelet className="px-6 pt-14 pb-8 sm:px-10" label="Time Machine verdict">
               <div className="grid items-end gap-8 md:grid-cols-[1.4fr_1fr]">
                 <div className="flex flex-col gap-5">

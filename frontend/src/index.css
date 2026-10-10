@@ -25,6 +25,7 @@
   --color-stable-soft: #dcebdf;
 
   --shadow-card: 0 1px 2px rgb(60 50 20 / 0.06), 0 8px 24px -12px rgb(60 50 20 / 0.18);
+  --shadow-card-hover: 0 2px 4px rgb(24 39 68 / 0.06), 0 18px 36px -16px rgb(24 39 68 / 0.24);
   --shadow-pop: 0 2px 4px rgb(28 32 48 / 0.08), 0 16px 40px -16px rgb(28 32 48 / 0.28);
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -110,6 +111,22 @@
     box-shadow 160ms ease;
   &:active:not(:disabled) {
     transform: scale(0.97);
+  }
+}
+
+/* Leaving: the slower of the two, so the card drifts back down. */
+.card-hover {
+  --card-ease: cubic-bezier(0.37, 0, 0.63, 1);
+  transition: transform 800ms var(--card-ease), box-shadow 800ms var(--card-ease);
+}
+
+@media (hover: hover) {
+  /* Entering: soft start, soft landing. */
+  .card-hover:hover {
+    z-index: 10;
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-hover);
+    transition-duration: 650ms;
   }
 }
 
