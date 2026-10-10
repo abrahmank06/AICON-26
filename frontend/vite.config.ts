@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(() => {
   const backendUrl = process.env.BACKEND_URL ?? 'http://127.0.0.1:8000'
   const proxy = {
-    '^/(snapshot|forecast|time-machine|alerts|analytics|performance|models|predict)(/|$)': {
+    '^/(snapshot|forecast|time-machine|alerts|analytics|performance|models|predict)': {
       target: backendUrl,
       changeOrigin: true,
     },
