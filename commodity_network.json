@@ -1,0 +1,129 @@
+{
+  "generated_at": "2026-10-10T14:36:51.588055",
+  "source_file": "MAAHIR.csv",
+  "signal": "roc_7d",
+  "max_lag_searched": 14,
+  "min_correlation_threshold": 0.2,
+  "total_edges": 17,
+  "edges": [
+    {
+      "city": "Multan",
+      "leader": "Potato Fresh",
+      "follower": "Tomato",
+      "lag_days": 3,
+      "correlation": 0.53
+    },
+    {
+      "city": "Lahore",
+      "leader": "Potato Fresh",
+      "follower": "Tomato",
+      "lag_days": 3,
+      "correlation": 0.501
+    },
+    {
+      "city": "Gujranwala",
+      "leader": "Potato Fresh",
+      "follower": "Tomato",
+      "lag_days": 2,
+      "correlation": 0.494
+    },
+    {
+      "city": "Multan",
+      "leader": "Tomato",
+      "follower": "Onion",
+      "lag_days": 2,
+      "correlation": 0.48
+    },
+    {
+      "city": "Rawalpindi",
+      "leader": "Potato Fresh",
+      "follower": "Tomato",
+      "lag_days": 1,
+      "correlation": 0.48
+    },
+    {
+      "city": "Gujranwala",
+      "leader": "Tomato",
+      "follower": "Onion",
+      "lag_days": 2,
+      "correlation": 0.457
+    },
+    {
+      "city": "Rawalpindi",
+      "leader": "Tomato",
+      "follower": "Onion",
+      "lag_days": 2,
+      "correlation": 0.455
+    },
+    {
+      "city": "Lahore",
+      "leader": "Tomato",
+      "follower": "Onion",
+      "lag_days": 2,
+      "correlation": 0.451
+    },
+    {
+      "city": "Lahore",
+      "leader": "Tomato",
+      "follower": "Green Chilli",
+      "lag_days": 1,
+      "correlation": 0.403
+    },
+    {
+      "city": "Gujranwala",
+      "leader": "Tomato",
+      "follower": "Green Chilli",
+      "lag_days": 1,
+      "correlation": 0.324
+    },
+    {
+      "city": "Multan",
+      "leader": "Potato Fresh",
+      "follower": "Onion",
+      "lag_days": 5,
+      "correlation": 0.32
+    },
+    {
+      "city": "Lahore",
+      "leader": "Potato Fresh",
+      "follower": "Onion",
+      "lag_days": 4,
+      "correlation": 0.309
+    },
+    {
+      "city": "Gujranwala",
+      "leader": "Potato Fresh",
+      "follower": "Onion",
+      "lag_days": 5,
+      "correlation": 0.295
+    },
+    {
+      "city": "Lahore",
+      "leader": "Onion",
+      "follower": "Green Chilli",
+      "lag_days": 1,
+      "correlation": 0.27
+    },
+    {
+      "city": "Multan",
+      "leader": "Tomato",
+      "follower": "Green Chilli",
+      "lag_days": 1,
+      "correlation": 0.26
+    },
+    {
+      "city": "Rawalpindi",
+      "leader": "Potato Fresh",
+      "follower": "Onion",
+      "lag_days": 6,
+      "correlation": 0.239
+    },
+    {
+      "city": "Multan",
+      "leader": "Potato Fresh",
+      "follower": "Green Chilli",
+      "lag_days": 14,
+      "correlation": 0.235
+    }
+  ]
+}
