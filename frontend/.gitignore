@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+
+# Impeccable review captures and scratch files
+.impeccable/review
+.impeccable/brief-body.md
+.impeccable/config.local.json
 
 # Editor directories and files
 .vscode/*

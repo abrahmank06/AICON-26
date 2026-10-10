@@ -1,32 +1,37 @@
-# React + TypeScript + Vite
+# YIELD frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Dashboard for YIELD, the vegetable price-spike early-warning system (Null Pointerz, AICON'26). React 19 + TypeScript + Vite.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev        # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Views
+
+| Route | View |
+| --- | --- |
+| `/snapshot` | Live Snapshot: stamped risk verdict, today's price, volatility and panic readings |
+| `/forecast` | 7-day forecast with likely range and spike alert banner |
+| `/time-machine` | Replay a past date: prediction vs what happened, plus a historical analogue (`?travel=YYYY-MM-DD`) |
+| `/alerts` | Sortable, filterable alert log |
+| `/analytics` | Contagion between markets, spillover between crops, SHAP-style drivers |
+| `/performance` | MAPE/RMSE/MAE, alert precision/recall/false alarms/lead time, business impact |
+
+Global filters (`market`, `crop`, `date`) live in the URL, so every view is shareable.
+
+## Data: mock now, backend later
+
+All data goes through the `YieldApi` interface in `src/services/api.ts`.
+
+- **Mock (default):** `src/services/mock/` reads real AMIS price history from `public/mock-data/` (built from `../yield_features_final.csv` with `npm run mock-data`). Forecasts, alerts, accuracy and attributions come from a heuristic placeholder model in `model.ts`. The header shows a "Demo data" chip while this is active.
+- **Backend:** set `VITE_USE_MOCK=false` and `VITE_API_URL` (see `.env.example`). `src/services/httpApi.ts` calls placeholder endpoints (`/snapshot`, `/forecast`, `/time-machine`, `/alerts`, `/analytics`, `/performance`) that must return the shapes in `src/types.ts`. Adjust paths there once the backend contract is final.
+
+## Scripts
+
+- `npm run build`: type-check and production build
+- `npm run lint`: ESLint
+- `npm test`: Vitest (placeholder model against the real data)
+- `npm run capture`: screenshots of every view at desktop and mobile widths into `.impeccable/review/` (needs the dev server and a local Chrome)
+
+Design system: see `DESIGN.md`. Product context: see `PRODUCT.md`.
