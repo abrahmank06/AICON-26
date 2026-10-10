@@ -1,0 +1,16 @@
+.git
+.devin
+.vscode
+.idea
+
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+
+frontend/node_modules
+frontend/dist
+frontend/.env
+frontend/.env.local
+
+*.log
+alerts_tmp.json
