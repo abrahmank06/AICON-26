@@ -7,6 +7,7 @@ venv/
 .freebuff/
 .env
 .env.local
+*.freebuff/
 
 # Database backups - may contain scraped business/contact data
 backups/
