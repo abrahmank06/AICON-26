@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.csv
+*.db
+.freebuff/
+.env
+.env.local
+
+# Database backups - may contain scraped business/contact data
+backups/
+
+# Portal runtime artifacts
+portal/node_modules/
+portal/.next/
+portal/out/
