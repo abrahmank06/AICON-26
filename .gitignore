@@ -7,9 +7,6 @@ venv/
 .freebuff/
 .env
 .env.local
-*.agent/
-*.cursor/
-
 
 # Database backups - may contain scraped business/contact data
 backups/
