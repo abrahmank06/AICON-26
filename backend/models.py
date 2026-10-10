@@ -1,8 +1,8 @@
 # pyrefly: ignore [missing-import]
 from datetime import date as date_type, datetime
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelRequest(BaseModel):
@@ -61,3 +61,108 @@ class ModelListResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+# --- Response shapes mirroring frontend/src/types.ts (the frontend is the contract) ---
+
+class SpikeAlert(BaseModel):
+    expectedChangePct: float = Field(..., description="Forecast peak change vs today's price (fraction).")
+    peakDate: date_type = Field(..., description="Date of the forecast peak.")
+
+
+class PricePoint(BaseModel):
+    date: date_type
+    price: int
+    isImputed: bool
+
+
+class ForecastPoint(BaseModel):
+    date: date_type
+    predicted: int
+    lower: int
+    upper: int
+
+
+RiskLevel = Literal["stable", "watch", "spike"]
+
+
+class SnapshotResponse(BaseModel):
+    date: date_type
+    market: str
+    crop: str
+    price: int
+    isImputed: bool
+    change7dPct: Optional[float] = None
+    volatility7d: Optional[float] = None
+    volatility30d: Optional[float] = None
+    panicIndex7d: Optional[float] = None
+    risk: RiskLevel
+    spikeAlert: Optional[SpikeAlert] = None
+
+
+class ForecastResponse(BaseModel):
+    asOf: date_type
+    history: list[PricePoint]
+    forecast: list[ForecastPoint]
+    spikeAlert: Optional[SpikeAlert] = None
+
+
+class TimeMachineResponse(ForecastResponse):
+    actual: list[PricePoint]
+    actualChangePct: float
+    mapePct: float
+    verdict: Literal["correct_alert", "false_alarm", "missed", "correct_calm"]
+    analogue: str
+
+
+class AlertResponse(BaseModel):
+    id: str
+    dateFired: date_type
+    market: str
+    crop: str
+    predictedSpikePct: float
+    actualSpikePct: float
+    leadTimeDays: Optional[int] = None
+    verdict: Literal["correct", "false_alarm"]
+
+
+class ContagionEdge(BaseModel):
+    # `from` is a Python keyword, hence the alias; serialization must emit "from".
+    model_config = ConfigDict(populate_by_name=True)
+
+    origin: str = Field(..., alias="from")
+    to: str
+    lagDays: int
+    strength: float
+
+
+class Spillover(BaseModel):
+    crops: list[str]
+    matrix: list[list[float]]
+
+
+class ShapFeature(BaseModel):
+    feature: str
+    label: str
+    contribution: float
+
+
+class AnalyticsResponse(BaseModel):
+    contagion: list[ContagionEdge]
+    spillover: Spillover
+    shap: list[ShapFeature]
+
+
+class PerformanceResponse(BaseModel):
+    mapePct: float
+    rmse: float
+    mae: float
+    precisionPct: float
+    recallPct: float
+    falseAlarmRatePct: float
+    avgLeadTimeDays: float
+    costSavingsPkr: float
+    alertCoveragePct: float
+    alertsEvaluated: int
+    windowStart: str
+    windowEnd: str

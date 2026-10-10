@@ -13,7 +13,7 @@ the last observed exog values forward (overridable per request).
 
 from __future__ import annotations
 
-from datetime import date as date_cls, datetime as datetime_cls
+from datetime import date as date_cls, datetime as datetime_cls, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -30,6 +30,16 @@ TRAINING_ROWS = 1500          # every model was trained on its series' last 1500
 MAX_HORIZON_DAYS = 730        # refuse forecasts further than 2 years past training end
 CONFIDENCE_LEVEL = 0.95
 EXOG_COLUMNS = ["price_vs_mean_30d", "panic_index_7d"]
+# Every column the frontend views display, straight from yield_features_final.csv.
+FEATURE_COLUMNS = [
+    "price",
+    "is_imputed_date",
+    "volatility_7d",
+    "volatility_30d",
+    "panic_index_7d",
+    "roc_7d",
+    "price_vs_mean_30d",
+]
 
 
 class PredictorError(Exception):
@@ -131,11 +141,15 @@ def load_model(crop: str, market: str):
 
 @lru_cache(maxsize=None)
 def load_history() -> dict:
-    """Return {(crop_slug, market_slug): DataFrame[date, price, exog...]}."""
+    """Return {(crop_slug, market_slug): DataFrame[date, *FEATURE_COLUMNS]}.
+
+    ``is_imputed_date`` is normalized to 0/1 ints so views can cast it to bool.
+    """
     if not HISTORY_CSV.exists():
         raise HistoryMissingError(f"History CSV not found: {HISTORY_CSV}")
     df = pd.read_csv(HISTORY_CSV)
     df["date"] = pd.to_datetime(df["date"])
+    df["is_imputed_date"] = pd.to_numeric(df["is_imputed_date"], errors="coerce").fillna(0).astype(int)
     df = df.sort_values("date").reset_index(drop=True)
 
     out = {}
@@ -144,7 +158,7 @@ def load_history() -> dict:
             key = (CROP_ALIASES[_normalize(crop_name)], MARKET_ALIASES[_normalize(market_name)])
         except KeyError:
             continue
-        out[key] = group[["date", "price", *EXOG_COLUMNS]].reset_index(drop=True)
+        out[key] = group[["date", *FEATURE_COLUMNS]].reset_index(drop=True)
     return out
 
 
@@ -178,6 +192,85 @@ def training_window(crop: str, market: str) -> tuple[date_cls, date_cls, int, in
         int(start),
         n,
     )
+
+
+@lru_cache(maxsize=None)
+def batch_in_sample(crop: str, market: str):
+    """One-step-ahead in-sample predictions and 95% CIs for every row of the
+    model's training window, from a single ``get_prediction`` call (cached).
+
+    Window-relative arrays: position ``k`` is absolute series index
+    ``training_window()[2] + k``. Slicing these is how the view endpoints get
+    historical forecasts without re-running the filter per date.
+    """
+    crop = resolve_crop(crop)
+    market = resolve_market(market)
+    model = load_model(crop, market)
+    _, _, start_idx, end_idx = training_window(crop, market)
+    pred = model.get_prediction(start=0, end=end_idx - start_idx - 1)
+    point = np.asarray(pred.predicted_mean, dtype=float)
+    ci = np.asarray(pred.conf_int(alpha=1 - CONFIDENCE_LEVEL), dtype=float)
+    return point, ci[:, 0], ci[:, 1]
+
+
+def forecast_window(
+    crop: str,
+    market: str,
+    origin: date_cls,
+    horizon: int = 7,
+) -> list[dict]:
+    """Point estimate + 95% CI for ``origin+1 .. origin+horizon``.
+
+    Targets inside the training window come from one-step-ahead in-sample
+    prediction (real exog, consistent with :func:`predict`); targets past the
+    window are forecast with the last observed exog carried forward.
+    ``origin`` is clamped to the series end, mirroring the frontend mock.
+    """
+    crop = resolve_crop(crop)
+    market = resolve_market(market)
+    origin = _to_date(origin)
+    model = load_model(crop, market)
+    series = load_history()[(crop, market)]
+    train_start, train_end, start_idx, end_idx = training_window(crop, market)
+
+    if origin < train_start:
+        raise DateOutOfRangeError(
+            f"Date {origin} is before the model's training window ({train_start} to {train_end})."
+        )
+
+    series_end = series["date"].iloc[-1].date()
+    origin = min(origin, series_end)
+    targets = [origin + timedelta(days=k) for k in range(1, horizon + 1)]
+    out: dict[date_cls, tuple[float, float, float]] = {}
+
+    in_sample = [d for d in targets if d <= train_end]
+    if in_sample:
+        series_start = series["date"].iloc[0].date()
+        first_abs = (in_sample[0] - series_start).days
+        points, lower, upper = batch_in_sample(crop, market)
+        for k, d in enumerate(in_sample):
+            rel = (first_abs + k) - start_idx
+            out[d] = (float(points[rel]), float(lower[rel]), float(upper[rel]))
+
+    beyond = [d for d in targets if d > train_end]
+    if beyond:
+        steps = (beyond[-1] - train_end).days
+        last_row = series.iloc[end_idx - 1]
+        exog_values = []
+        for col in EXOG_COLUMNS:
+            value = last_row[col]
+            exog_values.append(0.0 if pd.isna(value) else float(value))
+        fc = model.get_forecast(steps=steps, exog=np.tile(exog_values, (steps, 1)))
+        mean = np.asarray(fc.predicted_mean, dtype=float)
+        ci = np.asarray(fc.conf_int(alpha=1 - CONFIDENCE_LEVEL), dtype=float)
+        m = len(beyond)
+        for k, d in enumerate(beyond):
+            out[d] = (float(mean[-m + k]), float(ci[-m + k, 0]), float(ci[-m + k, 1]))
+
+    return [
+        {"date": d, "predicted": out[d][0], "lower": out[d][1], "upper": out[d][2]}
+        for d in targets
+    ]
 
 
 def _to_date(value) -> date_cls:

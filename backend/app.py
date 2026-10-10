@@ -1,5 +1,6 @@
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from models import (
     ErrorResponse,
@@ -8,6 +9,7 @@ from models import (
     ModelResponse,
 )
 import predictor
+from views import router as views_router
 
 app = FastAPI(
     name="MAHIR",
@@ -15,11 +17,34 @@ app = FastAPI(
 )
 
 
+# The React dev server (Vite on :5173) must be able to call the view endpoints.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+# View-shaped endpoints matching frontend/src/types.ts (see views.py).
+app.include_router(views_router)
+
+
 @app.get("/")
 def home():
     return {
         "message": "The app is running",
-        "endpoints": {"predict": "POST /predict", "models": "GET /models"},
+        "endpoints": {
+            "predict": "POST /predict",
+            "models": "GET /models",
+            "views": [
+                "GET /snapshot",
+                "GET /forecast",
+                "GET /time-machine",
+                "GET /alerts",
+                "GET /analytics",
+                "GET /performance",
+            ],
+        },
     }
 
 

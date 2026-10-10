@@ -18,6 +18,7 @@ const TABS = [
   { to: '/forecast', label: '7-day forecast' },
   { to: '/time-machine', label: 'Time Machine' },
   { to: '/alerts', label: 'Alert history' },
+  { to: '/analytics', label: 'Analytics' },
   { to: '/performance', label: 'Performance' },
 ]
 
