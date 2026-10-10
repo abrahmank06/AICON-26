@@ -38,7 +38,6 @@ router = APIRouter()
 # Mirrored from frontend/src/services/mock/model.ts
 HORIZON = 7
 HISTORY_DAYS = 30
-ALERT_THRESHOLD = 0.12
 SPIKE_THRESHOLD = 0.1
 ALERT_COOLDOWN = 14
 TONNES_PER_ALERT = 10
@@ -46,9 +45,14 @@ PERF_WINDOW_START = date_cls(2023, 1, 1)
 PERF_WINDOW_END = date_cls(2024, 12, 24)
 
 # Mirrored from frontend/src/lib/risk.ts
-VOLATILITY_7D_HIGH = 0.18
-PANIC_WATCH = 1
-PANIC_SPIKE = 1.5
+# Layer 1, the stress regime gates (~80th percentile of the AMIS feature set).
+VOLATILITY_30D_STRESS = 0.148
+PANIC_STRESS = 1
+# Layers 2 and 3: day-7 forecast change that confirms and tiers the alert.
+TIER_WATCH = 0.05
+TIER_WARNING = 0.1
+TIER_CRITICAL = 0.15
+ALERT_TIERS = ("warning", "critical")
 
 # Order as declared in frontend/src/types.ts — matrix rows follow this order.
 MARKETS = ["Lahore", "Multan", "Gujranwala", "Rawalpindi"]
@@ -195,12 +199,21 @@ def load_view(crop: str, market: str) -> SeriesView:
     return SeriesView(crop, market, df)
 
 
-def risk_level(volatility7d: float | None, panic_index: float | None) -> str:
-    vol = volatility7d if volatility7d is not None else 0
+def is_stressed(volatility30d: float | None, panic_index: float | None) -> bool:
+    vol = volatility30d if volatility30d is not None else 0
     panic = panic_index if panic_index is not None else 0
-    if panic >= PANIC_SPIKE and vol >= VOLATILITY_7D_HIGH:
-        return "spike"
-    if panic >= PANIC_WATCH or vol >= VOLATILITY_7D_HIGH:
+    return vol >= VOLATILITY_30D_STRESS and panic >= PANIC_STRESS
+
+
+def risk_level(volatility30d: float | None, panic_index: float | None, predicted_change: float | None) -> str:
+    """Three-layer verdict: stress regime gate, then the day-7 forecast change sets the tier."""
+    if predicted_change is None or not is_stressed(volatility30d, panic_index):
+        return "stable"
+    if predicted_change >= TIER_CRITICAL:
+        return "critical"
+    if predicted_change >= TIER_WARNING:
+        return "warning"
+    if predicted_change >= TIER_WATCH:
         return "watch"
     return "stable"
 
@@ -220,16 +233,18 @@ def forecast_points(view: SeriesView, origin: date_cls) -> list[ForecastPoint]:
     ]
 
 
+def assess(view: SeriesView, i: int, forecast: list[ForecastPoint]) -> tuple[str, SpikeAlert | None]:
+    """Risk tier for day ``i`` and the spike alert it fires (WARNING/CRITICAL only)."""
+    day7 = forecast[-1]
+    change = day7.predicted / view.prices[i] - 1
+    risk = risk_level(view.v30[i], view.panic[i], change)
+    if risk not in ALERT_TIERS:
+        return risk, None
+    return risk, SpikeAlert(expectedChangePct=change, peakDate=day7.date, severity=risk)
+
+
 def spike_alert(view: SeriesView, i: int, forecast: list[ForecastPoint]) -> SpikeAlert | None:
-    peak = forecast[0]
-    for p in forecast[1:]:
-        if p.predicted > peak.predicted:
-            peak = p
-    change = peak.predicted / view.prices[i] - 1
-    risk = risk_level(view.v7[i], view.panic[i])
-    if change >= ALERT_THRESHOLD or (risk == "spike" and change > 0.03):
-        return SpikeAlert(expectedChangePct=change, peakDate=peak.date)
-    return None
+    return assess(view, i, forecast)[1]
 
 
 # ---------------------------------------------------------------- endpoints
@@ -244,9 +259,9 @@ def get_snapshot(date: str = Query(...), market: str = Query(...), crop: str = Q
     row_date = view.dates[i]
 
     train_start, _, _, _ = predictor.training_window(view.crop_slug, view.market_slug)
-    alert = None
+    risk, alert = "stable", None
     if row_date >= train_start:  # dates before the window still get the CSV row
-        alert = spike_alert(view, i, forecast_points(view, row_date))
+        risk, alert = assess(view, i, forecast_points(view, row_date))
 
     v7, v30, panic = view.v7[i], view.v30[i], view.panic[i]
     return SnapshotResponse(
@@ -259,7 +274,7 @@ def get_snapshot(date: str = Query(...), market: str = Query(...), crop: str = Q
         volatility7d=v7,
         volatility30d=v30,
         panicIndex7d=panic,
-        risk="spike" if alert else risk_level(v7, panic),
+        risk=risk,
         spikeAlert=alert,
     )
 
@@ -362,14 +377,9 @@ def _scan_alerts(view: SeriesView, from_i: int, to_i: int) -> list[AlertResponse
     for i in range(scan_lo, scan_hi + 1):
         if last_fired is not None and i - last_fired < ALERT_COOLDOWN:
             continue
-        fc = [_display_price(points[i + k - start_idx]) for k in range(1, HORIZON + 1)]
-        peak = fc[0]
-        for v in fc[1:]:
-            if v > peak:
-                peak = v
-        change = peak / view.prices[i] - 1
-        risk = risk_level(view.v7[i], view.panic[i])
-        if not (change >= ALERT_THRESHOLD or (risk == "spike" and change > 0.03)):
+        day7 = _display_price(points[i + HORIZON - start_idx])
+        change = day7 / view.prices[i] - 1
+        if risk_level(view.v30[i], view.panic[i], change) not in ALERT_TIERS:
             continue
         last_fired = i
         outcome = view.outcome_after(i)

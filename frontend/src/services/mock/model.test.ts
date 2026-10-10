@@ -25,12 +25,18 @@ const lahoreOnion = load('Lahore', 'Onion')
 const all = MARKETS.flatMap((m) => CROPS.map((c) => load(m, c)))
 
 describe('riskLevel', () => {
-  it('combines volatility and panic into three levels', () => {
-    expect(riskLevel(0.05, 0)).toBe('stable')
-    expect(riskLevel(0.2, 0)).toBe('watch')
-    expect(riskLevel(0.05, 1.2)).toBe('watch')
-    expect(riskLevel(0.2, 1.6)).toBe('spike')
-    expect(riskLevel(null, null)).toBe('stable')
+  it('stays stable outside the stress regime, whatever the forecast', () => {
+    expect(riskLevel(0.1, 2, 0.3)).toBe('stable')
+    expect(riskLevel(0.2, 0.5, 0.3)).toBe('stable')
+    expect(riskLevel(null, null, 0.3)).toBe('stable')
+    expect(riskLevel(0.2, 2, null)).toBe('stable')
+  })
+
+  it('tiers a stressed market by the day-7 forecast change', () => {
+    expect(riskLevel(0.148, 1, 0.04)).toBe('stable')
+    expect(riskLevel(0.148, 1, 0.05)).toBe('watch')
+    expect(riskLevel(0.148, 1, 0.1)).toBe('warning')
+    expect(riskLevel(0.148, 1, 0.15)).toBe('critical')
   })
 })
 
@@ -52,11 +58,15 @@ describe('placeholder model on real AMIS history', () => {
     expect(r.mapePct).toBeGreaterThanOrEqual(0)
   })
 
-  it('marks the snapshot as a spike whenever the forecast raises an alert', () => {
-    const chilli = load('Lahore', 'Green Chilli')
-    const snap = snapshotAt(chilli, indexOf(chilli, '2024-12-14'))
-    expect(snap.spikeAlert).not.toBeNull()
-    expect(snap.risk).toBe('spike')
+  it('raises a spike alert exactly when the snapshot is WARNING or CRITICAL', () => {
+    for (const s of all) {
+      for (let i = 30; i < s.price.length - HORIZON; i += 5) {
+        const snap = snapshotAt(s, i)
+        const fired = snap.risk === 'warning' || snap.risk === 'critical'
+        expect(snap.spikeAlert !== null).toBe(fired)
+        if (snap.spikeAlert) expect(snap.spikeAlert.severity).toBe(snap.risk)
+      }
+    }
   })
 
   it('fires alerts at a plausible rate', () => {

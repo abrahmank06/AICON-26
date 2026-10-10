@@ -43,7 +43,7 @@ export default function ForecastPage() {
           >
             <TriangleAlert className="size-6 shrink-0" aria-hidden />
             <p className="text-[16px] font-semibold">
-              Spike alert: {place} could rise{' '}
+              {data.spikeAlert.severity === 'critical' ? 'Critical alert' : 'Spike warning'}: {place} could rise{' '}
               <span className="tnum">{formatSignedPct(data.spikeAlert.expectedChangePct)}</span> by{' '}
               {formatShortDate(data.spikeAlert.peakDate)}.
             </p>

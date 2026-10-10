@@ -11,8 +11,9 @@ import type { Snapshot } from '../../types'
 
 const headline = (s: Snapshot) => {
   const place = `${s.market} ${cropPlural(s.crop)}`
-  if (s.risk === 'spike') return `A price spike looks likely for ${place}.`
-  if (s.risk === 'watch') return `${place} prices are jumpy. Worth watching this week.`
+  if (s.risk === 'critical') return `A sharp price spike is coming for ${place}. Act now.`
+  if (s.risk === 'warning') return `A price spike looks likely for ${place}. Prepare a response.`
+  if (s.risk === 'watch') return `Early signs of a rise for ${place}. Worth monitoring this week.`
   return `No spike expected for ${place}.`
 }
 
@@ -116,19 +117,25 @@ export function SnapshotPage() {
               label="Swings this month"
               value={pct(data.volatility30d)}
               level={magnitude(data.volatility30d, RAMPS.volatility30d)}
-              explain={<>The same measure over 30 days (volatility, 30d). It shows whether instability is new or has been building.</>}
+              explain={
+                <>
+                  Monthly volatility: the 30-day spread of daily log returns (volatility, 30d). At 14.8% or more, together
+                  with a rising streak of 1.0 or more, the market is under stress and the forecast decides the alert.
+                </>
+              }
             />
           </div>
           <div className="sm:pl-8">
             <Reading
-              label="Rising streak"
+              label="Rising Index"
               value={data.panicIndex7d === null ? 'n/a' : (Math.round(data.panicIndex7d * 10) / 10 || 0).toFixed(1)}
               level={magnitude(data.panicIndex7d, RAMPS.panicIndex7d)}
               align="end"
               explain={
                 <>
-                  Panic index (7d): how steadily prices have been climbing, not just moving. 1.0 means watch; 1.5 or
-                  more alongside big swings means a spike is likely.
+                  Panic index (7d): the 7-day price change times the number of up days in that week, so it grows when
+                  prices climb steadily. 1.0 or more alongside monthly swings of 14.8% or more marks a stressed market.
+                  A forecast rise of 5% means watch, 10% warning and 15% critical.
                 </>
               }
             />

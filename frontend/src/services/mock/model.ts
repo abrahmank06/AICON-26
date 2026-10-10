@@ -2,13 +2,14 @@
 // Prices are real AMIS history; forecasts, alerts and attributions are computed heuristics.
 import { addDays, daysBetween } from '../../lib/dates'
 import { cropPlural, formatMonthYear, formatSignedPct } from '../../lib/format'
-import { riskLevel } from '../../lib/risk'
+import { isAlert, riskLevel } from '../../lib/risk'
 import type {
   Alert,
   ContagionEdge,
   ForecastPoint,
   Performance,
   PricePoint,
+  RiskLevel,
   ShapFeature,
   Snapshot,
   SpikeAlert,
@@ -20,7 +21,6 @@ import type { Series } from './series'
 
 export const HORIZON = 7
 export const HISTORY_DAYS = 30
-export const ALERT_THRESHOLD = 0.12
 export const SPIKE_THRESHOLD = 0.1
 const ALERT_COOLDOWN = 14
 const TONNES_PER_ALERT = 10
@@ -44,7 +44,7 @@ const range = (s: Series, from: number, to: number) => {
 const priceVsMean30 = (s: Series, i: number) => s.price[i] / mean(s.price.slice(Math.max(0, i - 29), i + 1)) - 1
 
 export function snapshotAt(s: Series, i: number): Snapshot {
-  const spikeAlert = spikeAlertFor(s, i, forecastAt(s, i))
+  const forecast = forecastAt(s, i)
   return {
     date: dateAt(s, i),
     market: s.market,
@@ -55,8 +55,8 @@ export function snapshotAt(s: Series, i: number): Snapshot {
     volatility7d: s.v7[i],
     volatility30d: s.v30[i],
     panicIndex7d: s.panic[i],
-    risk: spikeAlert ? 'spike' : riskLevel(s.v7[i], s.panic[i]),
-    spikeAlert,
+    risk: riskAt(s, i, forecast),
+    spikeAlert: spikeAlertFor(s, i, forecast),
   }
 }
 
@@ -80,14 +80,21 @@ export function forecastAt(s: Series, i: number): ForecastPoint[] {
   })
 }
 
+/** Day-7 forecast vs today's price: `(forecast_7d - current_price) / current_price`. */
+const predictedChange = (s: Series, i: number, forecast: ForecastPoint[]) =>
+  forecast[forecast.length - 1].predicted / s.price[i] - 1
+
+export const riskAt = (s: Series, i: number, forecast: ForecastPoint[]): RiskLevel =>
+  riskLevel(s.v30[i], s.panic[i], predictedChange(s, i, forecast))
+
 export function spikeAlertFor(s: Series, i: number, forecast: ForecastPoint[]): SpikeAlert | null {
-  const peak = forecast.reduce((best, p) => (p.predicted > best.predicted ? p : best), forecast[0])
-  const change = peak.predicted / s.price[i] - 1
-  const risk = riskLevel(s.v7[i], s.panic[i])
-  if (change >= ALERT_THRESHOLD || (risk === 'spike' && change > 0.03)) {
-    return { expectedChangePct: change, peakDate: peak.date }
+  const risk = riskAt(s, i, forecast)
+  if (!isAlert(risk)) return null
+  return {
+    expectedChangePct: predictedChange(s, i, forecast),
+    peakDate: forecast[forecast.length - 1].date,
+    severity: risk,
   }
-  return null
 }
 
 /** Largest rise over the next `HORIZON` days and when the 10% line was first crossed. */

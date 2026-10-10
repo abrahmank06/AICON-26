@@ -16,9 +16,6 @@ const shots = [
   ['time-machine', '/time-machine'],
   ['time-machine-result', `/time-machine?${spike}&travel=2024-12-14`],
   ['alerts', '/alerts'],
-  ['analytics', '/analytics'],
-  ['analytics-crops', '/analytics', 'Between crops'],
-  ['analytics-drivers', '/analytics', "Today's drivers"],
   ['performance', '/performance'],
 ]
 const viewports = { d: { width: 1440, height: 900 }, m: { width: 390, height: 844, isMobile: true, hasTouch: true } }

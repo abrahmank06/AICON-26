@@ -3,7 +3,8 @@ export const CROPS = ['Onion', 'Tomato', 'Potato Fresh', 'Green Chilli'] as cons
 
 export type Market = (typeof MARKETS)[number]
 export type Crop = (typeof CROPS)[number]
-export type RiskLevel = 'stable' | 'watch' | 'spike'
+export type RiskLevel = 'stable' | 'watch' | 'warning' | 'critical'
+export type AlertSeverity = Extract<RiskLevel, 'warning' | 'critical'>
 
 export interface Filters {
   date: string
@@ -27,6 +28,7 @@ export interface ForecastPoint {
 export interface SpikeAlert {
   expectedChangePct: number
   peakDate: string
+  severity: AlertSeverity
 }
 
 export interface Snapshot {

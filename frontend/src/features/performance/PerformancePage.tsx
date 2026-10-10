@@ -2,7 +2,7 @@ import { InfoTip } from '../../components/InfoTip'
 import { ErrorState, PanelSkeleton } from '../../components/States'
 import { Reading, Tag } from '../../components/Tag'
 import { usePerformance } from '../../hooks/queries'
-import { formatCompactPkr, formatDate, formatPkr } from '../../lib/format'
+import { formatDate, formatPkr } from '../../lib/format'
 
 const pct = (v: number) => `${v.toFixed(0)}%`
 
@@ -79,26 +79,11 @@ export default function PerformancePage() {
       </section>
 
       <section aria-labelledby="impact" className="card-hover relative overflow-hidden rounded-[20px] bg-navy px-6 py-8 text-card sm:px-10 sm:py-10">
-        <div className="grid items-end gap-8 md:grid-cols-[1.3fr_1fr]">
-          <div className="flex flex-col gap-3">
-            <h2 id="impact" className="text-[15px] font-semibold text-navy-soft">
-              Procurement cost savings
-            </h2>
-            <span className="figure tnum text-[clamp(2.5rem,5vw,3.6rem)] font-semibold">{formatCompactPkr(p.costSavingsPkr)}</span>
-            <p className="max-w-[52ch] text-[14px] leading-relaxed text-navy-soft">
-              Illustrative: a buyer purchasing 10 tonnes at the alert-day price ahead of every correctly flagged spike,
-              instead of at the peak. Assumes AMIS prices are quoted per 100 kg.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 md:items-end md:text-right">
-            <span className="flex items-center gap-1.5 text-[14px] font-semibold text-navy-soft">
-              Alert coverage
-              <InfoTip label="alert coverage" align="end" inverse>
-                Share of real spikes that Maahir flagged at least 2 days before prices crossed the 10% line.
-              </InfoTip>
-            </span>
-            <span className="figure tnum text-[clamp(2.2rem,4.5vw,3rem)] font-semibold">{pct(p.alertCoveragePct)}</span>
-          </div>
+        <div className="flex flex-col gap-3">
+          <h2 id="impact" className="figure text-[clamp(2.5rem,5vw,3.6rem)] font-semibold">
+            MAAHIR
+          </h2>
+          <p className="text-[15px] font-semibold text-navy-soft">Market Agricultural Alert &amp; Hazard Intelligence Radar</p>
         </div>
       </section>
     </div>

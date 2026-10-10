@@ -15,7 +15,6 @@ npm run dev        # http://localhost:5173
 | `/forecast` | 7-day forecast with likely range and spike alert banner |
 | `/time-machine` | Replay a past date: prediction vs what happened, plus a historical analogue (`?travel=YYYY-MM-DD`) |
 | `/alerts` | Sortable, filterable alert log |
-| `/analytics` | Contagion between markets, spillover between crops, SHAP-style drivers |
 | `/performance` | MAPE/RMSE/MAE, alert precision/recall/false alarms/lead time, business impact |
 
 Global filters (`market`, `crop`, `date`) live in the URL, so every view is shareable.

@@ -65,9 +65,14 @@ class ErrorResponse(BaseModel):
 
 # --- Response shapes mirroring frontend/src/types.ts (the frontend is the contract) ---
 
+RiskLevel = Literal["stable", "watch", "warning", "critical"]
+AlertSeverity = Literal["warning", "critical"]
+
+
 class SpikeAlert(BaseModel):
-    expectedChangePct: float = Field(..., description="Forecast peak change vs today's price (fraction).")
-    peakDate: date_type = Field(..., description="Date of the forecast peak.")
+    expectedChangePct: float = Field(..., description="Day-7 forecast change vs today's price (fraction).")
+    peakDate: date_type = Field(..., description="Date of the day-7 forecast the change is measured at.")
+    severity: AlertSeverity = Field(..., description="Alert tier: 'warning' (>= +10%) or 'critical' (>= +15%).")
 
 
 class PricePoint(BaseModel):
@@ -81,9 +86,6 @@ class ForecastPoint(BaseModel):
     predicted: int
     lower: int
     upper: int
-
-
-RiskLevel = Literal["stable", "watch", "spike"]
 
 
 class SnapshotResponse(BaseModel):
